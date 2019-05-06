@@ -18,7 +18,8 @@ object WordCountStreaming {
     val lines = ssc.socketTextStream("localhost", 8899)
     // input stream will be taken from port no. 889 of localhost.
     // type nc -lk <port_no> on terminal to give input stream.
-    val count = lines.flatMap(_.split(" ")).map((_, 1)).reduceByKey(_ + _)
+    val count = lines.flatMap(_.split(" ")).map((_, 1))
+    .reduceByKeyAndWindow((a:Int,b:Int) => (a + b), Seconds(3), Seconds(1))
     
     count.print()
     
