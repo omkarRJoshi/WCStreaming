@@ -8,16 +8,15 @@ import org.apache.spark.streaming.twitter.TwitterUtils
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkConf
 import scala.io.Source
+import org.apache.spark.streaming.dstream.ReceiverInputDStream
+import twitter4j.Status
+import org.apache.spark.rdd.RDD
+import org.apache.spark.streaming.dstream.DStream
 
 
 object AdvancedTwitterStreaming {
   
-  def main(args: Array[String]){
-    
-    
-    Logger.getLogger("org").setLevel(Level.ERROR)
-    
-    val conf = new SparkConf().setMaster("local[*]").setAppName("Spark Streaming")
+   val conf = new SparkConf().setMaster("local[*]").setAppName("Spark Streaming")
     // here local[*] shows that spark code will run on all possible cores.
     val ssc = new StreamingContext(conf, Seconds(5))
     
@@ -26,7 +25,7 @@ object AdvancedTwitterStreaming {
     var accessToken = ""
     var accessTokenSecret = ""
     
-    val keyFile = "/home/omkar/Desktop/twitter-setup"
+    val keyFile = "/home/omkar/Desktop/twitterSetup"
     val line = Source.fromFile(keyFile).getLines()
     
     for(line <- Source.fromFile(keyFile).getLines()){
@@ -36,32 +35,38 @@ object AdvancedTwitterStreaming {
        accessToken = keys(2).toString()
        accessTokenSecret = keys(3).toString()
     }
-     
    
+    def tweetConversionFunction(tweets : Status) : (String, String, String, String, String) = {
+       
+             val name = tweets.getUser.getName
+             val location = tweets.getUser.getLocation
+             val lang = tweets.getLang 
+             val tweet = tweets.getText
+             val hashtag = tweet.split(" ").filter(_.startsWith("#")).toString()
+             val latitude = tweets.getGeoLocation.getLatitude
+             val longitude = tweets.getGeoLocation.getLongitude
+             
+             (name, location, lang, tweet, hashtag)
+       
+     }
+    
+  def main(args: Array[String]){
+    
+    
+    Logger.getLogger("org").setLevel(Level.ERROR)
     
     System.setProperty("twitter4j.oauth.consumerKey", consumerKey)
     System.setProperty("twitter4j.oauth.consumerSecret", consumerSecret)
     System.setProperty("twitter4j.oauth.accessToken", accessToken)
     System.setProperty("twitter4j.oauth.accessTokenSecret", accessTokenSecret)
     
-    val filters = Array("DCvsSRH", "SRHvsDC","vivoipl", "vivoipl2019")
+    val filters = Array("EngladvWI", "WIvEngland")
     
     val tweets = TwitterUtils.createStream(ssc, None)
     
-    val tweetMap = tweets.map(status => 
-      
-      "Location : "+status.getUser.getLocation +
-      "\nname : "+status.getUser.getName+
-      "\nhashtag : "+status.getText.split(" ").filter(_.startsWith("#")).mkString(" ") +
-      "\ntweet : "+status.getText+
-      "\nlanguage : "+status.getUser.getLang +
-      "\ntime : "+status.getCreatedAt.getTime+
-      "\nMail ID : "+status.getUser.getEmail+
-      "\nURL : "+status.getURLEntities.mkString(" ")+
-      "\n"
-    )
+    val tweetConversion = tweets.map(tweetConversionFunction)
     
-    tweetMap.print()
+    tweetConversion.print()
       
     ssc.start()
     ssc.awaitTermination()
